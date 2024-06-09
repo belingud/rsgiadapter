@@ -1,4 +1,4 @@
-from typing import Any, Dict, Iterable, List, Optional, TypedDict, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple, TypedDict, Union
 
 
 class ASGIScope(TypedDict):
@@ -6,14 +6,14 @@ class ASGIScope(TypedDict):
     extensions: Dict[str, Dict[str, Any]]
     type: str
     http_version: str
-    server: Iterable[str, Optional[int]]
-    client: Iterable[str, int]
+    server: Iterable[Union[str, int, None]]
+    client: Iterable[Union[str, int, None]]
     scheme: str
     method: str
     path: str
     raw_path: bytes
     query_string: bytes
-    headers: Iterable[Iterable[Union[str, bytes], Union[str, bytes]]]
+    headers: Iterable[Tuple[Union[str, bytes], Union[str, bytes]]]
     root_path: str
     state: Optional[Dict[str, Any]]
 

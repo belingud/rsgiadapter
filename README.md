@@ -23,6 +23,28 @@ serve.serve()
 
 ```
 
+Supported Feature:
+
+-[x] HTTP Request Response
+  - [x] ASGI scope
+  - [x] ASGI receive
+  - [x] ASGI send
+- [x] Extensions
+  - [x] http.response.pathsend
+  - [ ] websocket.http.response
+  - [ ] http.response.push
+  - [ ] http.response.zerocopysend
+  - [ ] http.response.early_hint
+  - [ ] http.response.trailers
+  - [ ] http.response.debug
+- [ ] Lifespan
+  - [ ] lifespan.startup
+  - [ ] lifespan.startup.complete
+  - [ ] lifespan.startup.failed
+  - [ ] lifespan.shutdown
+  - [ ] lifespan.shutdown.complete
+  - [ ] lifespan.shutdown.failed
+
 Ref:
 
 - Granian: https://github.com/emmett-framework/granian

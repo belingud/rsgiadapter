@@ -1,13 +1,20 @@
 import asyncio
 import logging
 from os import PathLike, environ
-from typing import AsyncGenerator, Union
+from typing import AsyncGenerator, TYPE_CHECKING, Union
 
 from asgiref.compatibility import guarantee_single_callable
 
 from .constant import EventTypeEnum
-from .protocol import (ASGIScope, RSGIHTTPProtocol, RSGIHTTPScope,
-                       RSGIWebsocketProtocol, RSGIWebsocketScope)
+
+if TYPE_CHECKING:
+    from .protocol import (
+        ASGIScope,
+        RSGIHTTPProtocol,
+        RSGIHTTPScope,
+        RSGIWebsocketProtocol,
+        RSGIWebsocketScope,
+    )
 from .response import BodyIter, Response
 
 logger = logging.getLogger("rsgiadapter")
@@ -133,7 +140,6 @@ class ASGIToRSGIAdapter:
         protocol: Union["RSGIHTTPProtocol", "RSGIWebsocketProtocol"],
     ):
         asgi_scope = self.make_asgi_scope(scope)
-        print(asgi_scope)
         send_queue = asyncio.Queue()
         asgi_body = self.yield_body(protocol)
 
@@ -152,7 +158,6 @@ class ASGIToRSGIAdapter:
                 }
 
         async def send(msg):
-            logger.debug(msg)
             if msg.get("more_body", None) is False:
                 self.event_status = EventTypeEnum.HTTP_DISCONNECT
             await send_queue.put(msg)
