@@ -1,6 +1,6 @@
 [project]
 name = "rsgiadapter"
-version = "0.0.1"
+dynamic = ["version"]
 description = "An adapter for asgi to rsgi"
 authors = [
     { name = "belingud", email = "im.victor@qq.com" },
