@@ -1,0 +1,61 @@
+[project]
+name = "rsgiadapter"
+version = "0.0.1"
+description = "An adapter for asgi to rsgi"
+authors = [
+    { name = "belingud", email = "im.victor@qq.com" },
+]
+dependencies = [
+    "asgiref>=3.8.1",
+]
+requires-python = ">=3.8"
+readme = "README.md"
+license = { text = "BSD-3-Clause" }
+keywords = [
+    "asgi",
+    "rsgi",
+    "adapter",
+    "asgi adapter",
+    "rsgi adapter",
+    "asgi to rsgi",
+    "rsgi to asgi",
+    "asyncio"
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: System Administrators",
+    "Topic :: Internet",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
+    "Topic :: Internet :: WWW/HTTP :: ASGI",
+    "Topic :: Internet :: WWW/HTTP :: RSGI",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development",
+    "Typing :: Typed",
+    "Framework :: AsyncIO",
+    "Framework :: Web Framework",
+    "Environment :: Web Server",
+]
+
+[tool.pdm]
+distribution = true
+
+[tool.pdm.dev-dependencies]
+dev = [
+    "fastapi>=0.111.0",
+    "black>=24.4.2",
+    "isort>=5.13.2",
+    "granian>=1.4.1",
+]
