@@ -77,7 +77,7 @@ class ASGIToRSGIAdapter:
 
     def make_asgi_scope(
         self, scope: Union["RSGIHTTPScope", "RSGIWebsocketScope"]
-    ) -> ASGIScope:
+    ) -> "ASGIScope":
         """
         Generates an ASGI scope based on RSGI scope, extracting relevant information,
         such as versions, protocol, HTTP version, server details, client details, scheme,
