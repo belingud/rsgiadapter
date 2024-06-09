@@ -177,7 +177,7 @@ class ASGIToRSGIAdapter:
             status=None, headers=[], body=BodyIter(), path=None, stream=None, type=None
         )
         while not send_queue.empty():
-            message = await send_queue.get_nowait()
+            message = await send_queue.get()
             if message["type"] == EventTypeEnum.HTTP_RESP_START:
                 response.status = message["status"]
                 response.headers = [
