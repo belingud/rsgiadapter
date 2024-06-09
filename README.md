@@ -25,7 +25,7 @@ serve.serve()
 
 Supported Feature:
 
--[x] HTTP Request Response
+- [x] HTTP Request Response
   - [x] ASGI scope
   - [x] ASGI receive
   - [x] ASGI send
