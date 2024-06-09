@@ -54,7 +54,7 @@ requires = ["pdm-backend"]
 build-backend = "pdm.backend"
 
 [project.urls]
-Homepage = ""
+Homepage = "https://github.com/belingud/rsgiadapter"
 
 [tool.pdm.build]
 excludes = ["./**/.git"]
