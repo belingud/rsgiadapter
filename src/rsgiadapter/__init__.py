@@ -1,4 +1,4 @@
-from .asgi import ASGIToRSGI
+from rsgiadapter.asgi import ASGIToRSGI
 
 __all__ = ["ASGIToRSGI"]
 

@@ -3,19 +3,17 @@ import logging
 from os import PathLike, environ
 from typing import AsyncGenerator, TYPE_CHECKING, Union
 
-from asgiref.compatibility import guarantee_single_callable
-
-from .constant import EventTypeEnum
+from rsgiadapter.constant import EventTypeEnum
 
 if TYPE_CHECKING:
-    from .protocol import (
+    from rsgiadapter.protocol import (
         ASGIScope,
         RSGIHTTPProtocol,
         RSGIHTTPScope,
         RSGIWebsocketProtocol,
         RSGIWebsocketScope,
     )
-from .response import BodyIter, Response
+from rsgiadapter.response import BodyIter, Response
 
 logger = logging.getLogger("rsgiadapter")
 if environ.get("RSGI_ADAPTER_DEBUG", "0") == "1":
@@ -163,7 +161,7 @@ class ASGIToRSGIAdapter:
             await send_queue.put(msg)
 
         try:
-            await guarantee_single_callable(self.asgi_app)(asgi_scope, receive, send)
+            await self.asgi_app(asgi_scope, receive, send)
         except asyncio.CancelledError:
             logger.debug("ASGI app cancelled")
         except Exception:

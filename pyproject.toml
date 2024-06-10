@@ -6,7 +6,6 @@ authors = [
     { name = "belingud", email = "im.victor@qq.com" },
 ]
 dependencies = [
-    "asgiref>=3.8.1",
 ]
 requires-python = ">=3.8,<4.0"
 readme = "README.md"
