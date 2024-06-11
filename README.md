@@ -20,7 +20,6 @@ rsgi_app = ASGIToRSGI(app)
 
 serve = granian.Granian("app:rsgi_app", interface=Interfaces.RSGI)
 serve.serve()
-
 ```
 
 Supported Feature:
@@ -37,13 +36,13 @@ Supported Feature:
   - [ ] http.response.early_hint
   - [ ] http.response.trailers
   - [ ] http.response.debug
-- [ ] Lifespan
-  - [ ] lifespan.startup
-  - [ ] lifespan.startup.complete
-  - [ ] lifespan.startup.failed
-  - [ ] lifespan.shutdown
-  - [ ] lifespan.shutdown.complete
-  - [ ] lifespan.shutdown.failed
+- [x] Lifespan
+  - [x] lifespan.startup
+  - [x] lifespan.startup.complete
+  - [x] lifespan.startup.failed
+  - [x] lifespan.shutdown
+  - [x] lifespan.shutdown.complete
+  - [x] lifespan.shutdown.failed
 
 Ref:
 

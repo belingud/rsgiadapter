@@ -1,9 +1,15 @@
 import asyncio
 import logging
+import sys
 from os import PathLike, environ
-from typing import AsyncGenerator, TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, AsyncGenerator, Union
 
-from rsgiadapter.constant import EventTypeEnum
+from rsgiadapter.constant import (
+    DEFAULT_ASGI_VERSION,
+    DEFAULT_SPEC_VERSION,
+    EventTypeEnum,
+)
+from rsgiadapter.lifespan import LifespanProtocol
 
 if TYPE_CHECKING:
     from rsgiadapter.protocol import (
@@ -13,14 +19,12 @@ if TYPE_CHECKING:
         RSGIWebsocketProtocol,
         RSGIWebsocketScope,
     )
-from rsgiadapter.response import BodyIter, Response
+
+from rsgiadapter.response import BodyManager, Response
 
 logger = logging.getLogger("rsgiadapter")
 if environ.get("RSGI_ADAPTER_DEBUG", "0") == "1":
     logger.setLevel(logging.DEBUG)
-
-DEFAULT_ASGI_VERSION = "3.0"
-DEFAULT_SPEC_VERSION = "2.3"
 
 
 class ASGIToRSGI:
@@ -28,17 +32,35 @@ class ASGIToRSGI:
     def __init__(
         self,
         asgi_application,
-        asgi_version=DEFAULT_ASGI_VERSION,
-        spec_version=DEFAULT_SPEC_VERSION,
+        with_lifespan: bool = True,
+        exit_on_lifespan_error: bool = False,
+        asgi_version: str = DEFAULT_ASGI_VERSION,
+        spec_version: str = DEFAULT_SPEC_VERSION,
     ):
         self.asgi_application = asgi_application
         self.asgi_version = asgi_version
         self.spec_version = spec_version
+        if with_lifespan:
+            loop = asyncio.get_event_loop()
+            lifespan = LifespanProtocol(self.asgi_application)
+            loop.create_task(lifespan.startup())
+            loop.create_task(
+                self.check_lifespan_error(lifespan, exit_on_lifespan_error)
+            )
 
     async def __call__(self, scope, protocol):
         await ASGIToRSGIAdapter(
             self.asgi_application, self.asgi_version, self.spec_version
         )(scope, protocol)
+
+    async def check_lifespan_error(
+        self, lifespan_protocol: LifespanProtocol, exit_on_lifespan_error=False
+    ):
+        await lifespan_protocol.event_startup.wait()
+        if lifespan_protocol.errored:
+            logger.error(lifespan_protocol.exc)
+            if exit_on_lifespan_error:
+                sys.exit(1)
 
 
 class ASGIToRSGIAdapter:
@@ -172,7 +194,12 @@ class ASGIToRSGIAdapter:
 
     async def get_response(self, send_queue: asyncio.Queue):
         response = Response(
-            status=None, headers=[], body=BodyIter(), path=None, stream=None, type=None
+            status=None,
+            headers=[],
+            body=BodyManager(),
+            path=None,
+            stream=None,
+            type=None,
         )
         while not send_queue.empty():
             message = await send_queue.get()
@@ -209,6 +236,6 @@ class ASGIToRSGIAdapter:
             protocol.response_bytes(
                 status=response.status,
                 headers=response.headers,
-                body=b"".join(response.get_body()),
+                body=response.get_body(),
             )
             response.clear_body()

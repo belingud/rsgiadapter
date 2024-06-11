@@ -5,7 +5,7 @@ from types import CodeType
 from unittest.mock import AsyncMock, MagicMock, Mock, NonCallableMock, call
 
 from rsgiadapter.asgi import ASGIToRSGIAdapter
-from rsgiadapter.response import BodyIter, Response
+from rsgiadapter.response import BodyManager, Response
 
 
 class Stream(Mock):
@@ -125,7 +125,7 @@ class TestPerformResponse(unittest.IsolatedAsyncioTestCase):
 
     def setUp(self):
         self.protocol = AsyncMock()
-        body = BodyIter()
+        body = BodyManager(chunk_size=5)
         body.append(b"hello")
         body.append(b"world")
         self.response = Response(
@@ -167,7 +167,7 @@ class TestPerformResponse(unittest.IsolatedAsyncioTestCase):
         )
 
     async def test_response_bytes(self):
-        self.response.body = BodyIter()
+        self.response.body = BodyManager()
         await self.adapter.perform_response(self.protocol, self.response)
         self.protocol.response_bytes.assert_called_once_with(
             status=200,

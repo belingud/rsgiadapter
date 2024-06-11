@@ -1,10 +1,14 @@
 from enum import StrEnum
 
+DEFAULT_ASGI_VERSION = "3.0"
+DEFAULT_SPEC_VERSION = "2.3"
+
 
 class EventTypeEnum(StrEnum):
     """
     ASGI event types
     """
+
     # http
     HTTP_REQUEST = "http.request"
     HTTP_DISCONNECT = "http.disconnect"
