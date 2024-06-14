@@ -42,9 +42,9 @@ Supported Feature:
   - [x] lifespan.startup
   - [x] lifespan.startup.complete
   - [x] lifespan.startup.failed
-  - [x] lifespan.shutdown
-  - [x] lifespan.shutdown.complete
-  - [x] lifespan.shutdown.failed
+  - [ ] lifespan.shutdown
+  - [ ] lifespan.shutdown.complete
+  - [ ] lifespan.shutdown.failed
 
 Ref:
 
