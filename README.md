@@ -24,6 +24,31 @@ serve = granian.Granian("app:rsgi_app", interface=Interfaces.RSGI)
 serve.serve()
 ```
 
+with asgi lifespan:
+
+```python
+from contextlib import asynccontextmanager
+
+import granian
+from granian.constants import Interfaces
+from rsgiadapter import ASGIToRSGI
+
+
+@asynccontextmanager
+async def lifespan(_app):
+    print("lifespan start")
+    yield
+    print("lifespan stop")
+
+
+app = None  # Define your asgi application here
+
+rsgi_app = ASGIToRSGI(app, lifespan=lifespan)
+
+serve = granian.Granian("app:rsgi_app", interface=Interfaces.RSGI)
+serve.serve()
+```
+
 Supported Feature:
 
 - [x] HTTP Request Response
@@ -40,11 +65,11 @@ Supported Feature:
   - [ ] http.response.debug
 - [x] Lifespan
   - [x] lifespan.startup
-  - [x] lifespan.startup.complete
-  - [x] lifespan.startup.failed
-  - [ ] lifespan.shutdown
-  - [ ] lifespan.shutdown.complete
-  - [ ] lifespan.shutdown.failed
+  - [x] lifespan.startup.complete(silence)
+  - [x] lifespan.startup.failed(will terminate)
+  - [x] lifespan.shutdown
+  - [x] lifespan.shutdown.complete(silence)
+  - [x] lifespan.shutdown.failed(will terminate)
 
 Ref:
 
