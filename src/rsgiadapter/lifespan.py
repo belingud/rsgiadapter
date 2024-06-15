@@ -77,13 +77,19 @@ class LifespanProtocol:
             _handler_task.cancel()
 
     async def shutdown(self):
+        print("in lifespanprotocol shutdown")
         self.state.clear()
 
         if self.errored:
             return
+        loop = asyncio.get_event_loop()
+        _handler_task = loop.create_task(self.handle())
 
         await self.event_queue.put({"type": "lifespan.shutdown"})
         await self.event_shutdown.wait()
+
+        if self.errored:
+            _handler_task.cancel()
 
     async def receive(self):
         return await self.event_queue.get()

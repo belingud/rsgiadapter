@@ -1,15 +1,16 @@
 import asyncio
+import atexit
+import inspect
 import logging
-import sys
+from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from os import PathLike, environ
-from typing import TYPE_CHECKING, AsyncGenerator, Union
+from typing import TYPE_CHECKING, Any, AsyncGenerator, Callable, Optional, Union
 
 from rsgiadapter.constant import (
     DEFAULT_ASGI_VERSION,
     DEFAULT_SPEC_VERSION,
     EventTypeEnum,
 )
-from rsgiadapter.lifespan import LifespanProtocol
 
 if TYPE_CHECKING:
     from rsgiadapter.protocol import (
@@ -31,36 +32,50 @@ class ASGIToRSGI:
 
     def __init__(
         self,
-        asgi_application,
-        with_lifespan: bool = True,
-        exit_on_lifespan_error: bool = False,
+        asgi_application: Callable[..., Any],
+        lifespan: Optional[
+            Callable[[Any], AbstractAsyncContextManager] | AbstractAsyncContextManager
+        ] = None,
         asgi_version: str = DEFAULT_ASGI_VERSION,
         spec_version: str = DEFAULT_SPEC_VERSION,
     ):
         self.asgi_application = asgi_application
         self.asgi_version = asgi_version
         self.spec_version = spec_version
-        if with_lifespan:
-            loop = asyncio.get_event_loop()
-            lifespan = LifespanProtocol(self.asgi_application)
-            loop.create_task(lifespan.startup())
-            loop.create_task(
-                self.check_lifespan_error(lifespan, exit_on_lifespan_error)
-            )
+        self.lifespan = None
+        self.register_lifespan(lifespan)
 
-    async def __call__(self, scope, protocol):
+    async def __rsgi__(self, scope, protocol):
         await ASGIToRSGIAdapter(
             self.asgi_application, self.asgi_version, self.spec_version
         )(scope, protocol)
 
-    async def check_lifespan_error(
-        self, lifespan_protocol: LifespanProtocol, exit_on_lifespan_error=False
-    ):
-        await lifespan_protocol.event_startup.wait()
-        if lifespan_protocol.errored:
-            logger.error(lifespan_protocol.exc)
-            if exit_on_lifespan_error:
-                sys.exit(1)
+    def register_lifespan(self, lifespan):
+        if lifespan is None:
+            return
+        if inspect.isasyncgenfunction(lifespan):
+            lifespan = asynccontextmanager(lifespan)
+        elif inspect.isgeneratorfunction(lifespan):
+            raise TypeError(
+                "generator function lifespans are not supported, "
+                "use an @contextlib.asynccontextmanager wrapped callable instead"
+            )
+        try:
+            self.lifespan = lifespan(self.asgi_application)
+        except TypeError:
+            self.lifespan = lifespan()
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(self.lifespan.__aenter__())
+        atexit.register(self.atexit_shutdown)
+
+    def atexit_shutdown(self):
+        if self.lifespan is None:
+            return
+        try:
+            loop = asyncio.get_event_loop()
+            loop.run_until_complete(self.lifespan.__aexit__(None, None, None))
+        except Exception as e:
+            logger.exception(e)
 
 
 class ASGIToRSGIAdapter:
@@ -187,7 +202,7 @@ class ASGIToRSGIAdapter:
         except asyncio.CancelledError:
             logger.debug("ASGI app cancelled")
         except Exception:
-            logger.debug("ASGI app raised an exception", exc_info=True)
+            logger.info("ASGI app raised an exception", exc_info=True)
         response = await self.get_response(send_queue)
 
         await self.perform_response(protocol, response)
@@ -220,22 +235,25 @@ class ASGIToRSGIAdapter:
         protocol: Union["RSGIHTTPProtocol", "RSGIWebsocketProtocol"],
         response: Response,
     ) -> None:
+        if not response.status:
+            return
         if response.path is not None and isinstance(response.path, (str, PathLike)):
             protocol.response_file(
                 status=response.status, headers=response.headers, file=response.path
             )
-            return
-        if len(response.body) > 1:
+        elif len(response.body) == 0:
+            protocol.response_empty(status=response.status, headers=response.headers)
+        elif len(response.body) == 1:
+            protocol.response_bytes(
+                status=response.status,
+                headers=response.headers,
+                body=response.get_body(),
+            )
+        elif len(response.body) > 1:
             trx = protocol.response_stream(
                 status=response.status,
                 headers=response.headers,
             )
             async for chunk in response.body:
                 await trx.send_bytes(chunk)
-        else:
-            protocol.response_bytes(
-                status=response.status,
-                headers=response.headers,
-                body=response.get_body(),
-            )
-            response.clear_body()
+        response.clear_body()

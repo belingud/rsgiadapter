@@ -1,4 +1,6 @@
 import io
+import logging
+from contextlib import asynccontextmanager
 from typing import AsyncIterable
 
 from fastapi import FastAPI, WebSocket
@@ -9,7 +11,20 @@ from starlette.responses import FileResponse
 
 from rsgiadapter.asgi import ASGIToRSGI
 
-fast = FastAPI()
+logging.basicConfig(
+    level=logging.INFO,
+    format="[%(asctime)s] %(levelname)s [%(name)s.%(funcName)s:%(lineno)d] %(message)s",
+)
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    print("lifespan startup")
+    yield
+    print("lifespan shutdown")
+
+
+fast = FastAPI(lifespan=lifespan)
 
 
 class Body(AsyncIterable):
@@ -49,7 +64,7 @@ async def websocket_endpoint(websocket: WebSocket):
     await websocket.close()
 
 
-app = ASGIToRSGI(fast)
+app = ASGIToRSGI(fast, lifespan=lifespan)
 
 if __name__ == "__main__":
     server = Granian(
