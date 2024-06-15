@@ -8,7 +8,12 @@ RSGI Specification ref: https://github.com/emmett-framework/granian/blob/master/
 
 `rsgiadapter` is an adapter for [RSGI](https://github.com/emmett-framework/granian/blob/master/docs/spec/RSGI.md) server run [ASGI](https://asgi.readthedocs.io) application like FastAPI and BlackSheep.
 
-Usage:
+This project provides a way to run ASGI web frameworks on an RSGI server, but it is not recommended to use the RSGI server in this manner. Using frameworks that natively support the RSGI protocol can better leverage the performance advantages of RSGI.
+
+Check [examples](https://github.com/belingud/rsgiadapter/tree/master/examples) for more framework examples.
+You can run the scripts in the examples directory to test.
+
+Basic Usage:
 
 `app.py`
 ```python
@@ -16,12 +21,20 @@ import granian
 from granian.constants import Interfaces
 from rsgiadapter import ASGIToRSGI
 
-app = None  # Define your asgi application here
+
+# Declare your asgi application here
+async def app(scope, receive, send):
+    await send({"type": "http.response.start", "status": 200, "headers": []})
+    await send(
+        {"type": "http.response.body", "body": b"Hello, World!", "more_body": False}
+    )
+
 
 rsgi_app = ASGIToRSGI(app)
 
-serve = granian.Granian("app:rsgi_app", interface=Interfaces.RSGI)
-serve.serve()
+if __name__ == "__main__":
+    serve = granian.Granian("app:rsgi_app", interface=Interfaces.RSGI)
+    serve.serve()
 ```
 
 with asgi lifespan:
@@ -41,13 +54,32 @@ async def lifespan(_app):
     print("lifespan stop")
 
 
-app = None  # Define your asgi application here
+# Declare your asgi application here
+async def app(scope, receive, send):
+    await send({"type": "http.response.start", "status": 200, "headers": []})
+    await send(
+        {"type": "http.response.body", "body": b"Hello, World!", "more_body": False}
+    )
+
 
 rsgi_app = ASGIToRSGI(app, lifespan=lifespan)
 
-serve = granian.Granian("app:rsgi_app", interface=Interfaces.RSGI)
-serve.serve()
+if __name__ == "__main__":
+    serve = granian.Granian("app:rsgi_app", interface=Interfaces.RSGI)
+    serve.serve()
 ```
+
+Supported Framework:
+
+1. FastAPI
+2. Starlette
+3. litestar
+4. falcon
+5. blacksheep
+6. quart
+7. sanic
+8. Django>=3.0
+9. and other Python web frameworks that support the ASGI protocol, with or without lifespan support.
 
 Supported Feature:
 
