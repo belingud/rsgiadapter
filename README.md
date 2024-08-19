@@ -1,6 +1,7 @@
 # rsgiadapter
 
 [![PyPI - Version](https://img.shields.io/pypi/v/rsgiadapter?style=for-the-badge)](https://pypi.org/project/rsgiadapter/) ![GitHub License](https://img.shields.io/github/license/belingud/rsgiadapter?style=for-the-badge) ![PyPI - Downloads](https://img.shields.io/pypi/dm/rsgiadapter?logo=pypi&cacheSeconds=86400&style=for-the-badge) ![PyPI - Status](https://img.shields.io/pypi/status/rsgiadapter?style=for-the-badge)
+![Pepy Total Downlods](https://img.shields.io/pepy/dt/rsgiadapter?style=for-the-badge&logo=python)
 
 An Asgi to rsgi adapter.
 
