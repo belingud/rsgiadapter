@@ -68,7 +68,7 @@ app = ASGIToRSGI(fast, lifespan=lifespan)
 
 if __name__ == "__main__":
     server = Granian(
-        "fast:app",
+        "_fastapi:app",
         address="127.0.0.1",
         port=8888,
         workers=1,
