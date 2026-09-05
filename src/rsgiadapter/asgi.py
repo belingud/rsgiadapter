@@ -13,8 +13,7 @@ import inspect
 import logging
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from os import PathLike, environ
-from typing import TYPE_CHECKING, Any, AsyncGenerator, Callable, Optional, Union
-
+from typing import TYPE_CHECKING, Any, AsyncGenerator, AsyncIterator, Callable, Optional, Union, cast
 from rsgiadapter.constant import (
     DEFAULT_ASGI_VERSION,
     DEFAULT_SPEC_VERSION,
@@ -53,7 +52,9 @@ class ASGIToRSGI:
         self,
         asgi_application: Callable[..., Any],
         lifespan: Optional[
-            Callable[[Any], AbstractAsyncContextManager] | AbstractAsyncContextManager
+            Callable[[Any], AbstractAsyncContextManager]
+            | Callable[[Any], AsyncGenerator[Any, Any]]
+            | AbstractAsyncContextManager
         ] = None,
         asgi_version: str = DEFAULT_ASGI_VERSION,
         spec_version: str = DEFAULT_SPEC_VERSION,
@@ -150,23 +151,26 @@ class ASGIToRSGIAdapter:
         self.response_content_length = None
 
     async def yield_body(
-        self, protocol: Union["RSGIHTTPProtocol", "RSGIWebsocketProtocol"]
-    ) -> AsyncGenerator:
+        self, protocol: "AsyncIterator[Any]"
+    ) -> AsyncGenerator[Any, None]:
         """
-        Asynchronously yields messages from the given rsgi `protocol`.
+        Asynchronously yields request body chunks from the RSGI HTTP protocol.
+
+        Only HTTP connections carry an iterable request body; websocket
+        connections are handled by the websocket bridge instead.
 
         Args:
-            protocol (RSGIHTTPProtocol | RSGIWebsocketProtocol): RSGIHTTPProtocol or RSGIWebsocketProtocol instance.
+            protocol (RSGIHTTPProtocol): the RSGI HTTP protocol instance.
 
         Yields:
-            Any: The next message from the rsgi protocol.
+            Any: The next body chunk from the rsgi protocol.
 
         """
         async for msg in protocol:
             yield msg
 
     def make_asgi_scope(
-        self, scope: Union["RSGIHTTPScope", "RSGIWebsocketScope"]
+        self, scope: Optional[Union["RSGIHTTPScope", "RSGIWebsocketScope"]]
     ) -> "ASGIScope":
         """
         Generates an ASGI scope based on RSGI scope, extracting relevant information,
@@ -236,18 +240,23 @@ class ASGIToRSGIAdapter:
         to the websocket bridge; every other connection follows the HTTP flow.
         """
         # RSGI servers call the application with a websocket scope/protocol
-        # for upgrade requests: bridge those to the ASGI websocket protocol
+        # for upgrade requests: bridge those to the ASGI websocket protocol.
+        # The RSGI scope classes are structural templates only (never
+        # importable at runtime), so the branch uses a proto marker + cast.
         if getattr(scope, "proto", None) == "ws":
             await ASGIToRSGIWebsocketAdapter(
                 self.asgi_app, self.asgi_version, self.spec_version
-            )(scope, protocol)
+            )(
+                cast("RSGIWebsocketScope", scope),
+                cast("RSGIWebsocketProtocol", protocol),
+            )
             return
 
         asgi_scope = self.make_asgi_scope(scope)
         # outgoing ASGI messages are buffered until the application returns,
         # then drained by get_response() and flushed by perform_response()
         send_queue = asyncio.Queue()
-        asgi_body = self.yield_body(protocol)
+        asgi_body = self.yield_body(cast("RSGIHTTPProtocol", protocol))
 
         async def receive():
             """
@@ -290,7 +299,7 @@ class ASGIToRSGIAdapter:
             logger.info("ASGI app raised an exception", exc_info=True)
         response = await self.get_response(send_queue)
 
-        await self.perform_response(protocol, response)
+        await self.perform_response(cast("RSGIHTTPProtocol", protocol), response)
 
     async def get_response(self, send_queue: asyncio.Queue) -> Response:
         """
@@ -357,7 +366,7 @@ class ASGIToRSGIAdapter:
 
     async def perform_response(
         self,
-        protocol: Union["RSGIHTTPProtocol", "RSGIWebsocketProtocol"],
+        protocol: "RSGIHTTPProtocol",
         response: Response,
     ) -> None:
         """

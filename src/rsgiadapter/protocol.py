@@ -83,6 +83,16 @@ class RSGIHTTPScope(object):
     )  # default
 
 
+class RSGIHTTPStreamTransport(object):
+    """RSGI stream response transport template, for type hinting"""
+
+    async def send_bytes(self, data: bytes) -> None:
+        ...
+
+    async def send_str(self, data: str) -> None:
+        ...
+
+
 class RSGIHTTPProtocol(object):
     """RSGI HTTP Protocol template, for type hinting"""
 
@@ -98,20 +108,22 @@ class RSGIHTTPProtocol(object):
     headers: List
     body: bytes
 
-    def response_bytes(self, *args, **kwargs):
-        pass
+    def response_bytes(self, *args, **kwargs) -> None:
+        ...
 
-    def response_empty(self, *args, **kwargs):
-        pass
+    def response_empty(self, *args, **kwargs) -> None:
+        ...
 
-    def response_file(self, *args, **kwargs):
-        pass
+    def response_file(self, *args, **kwargs) -> None:
+        ...
 
-    def response_str(self, *args, **kwargs):
-        pass
+    def response_str(self, *args, **kwargs) -> None:
+        ...
 
-    def response_stream(self, *args, **kwargs):
-        pass
+    def response_stream(
+        self, *args, **kwargs
+    ) -> RSGIHTTPStreamTransport:
+        ...
 
     def __aiter__(self, *args, **kwargs):
         return self
@@ -121,15 +133,15 @@ class RSGIHTTPProtocol(object):
             return self.data.pop(0)
         raise StopAsyncIteration
 
-    def __call__(self, *args, **kwargs):
-        pass
+    def __call__(self, *args, **kwargs) -> bytes:
+        ...
 
     def __init__(self, *args, **kwargs):
         self.data = list(args)
 
     @staticmethod
     def __new__(cls, *args, **kwargs):
-        pass
+        ...
 
 
 class RSGIWebsocketMessage:
@@ -148,13 +160,13 @@ class RSGIWebsocketTransport(object):
     """RSGI Websocket transport template, for type hinting"""
 
     async def receive(self, *args, **kwargs) -> RSGIWebsocketMessage:
-        pass
+        ...
 
-    async def send_bytes(self, *args, **kwargs):
-        pass
+    async def send_bytes(self, data: bytes) -> None:
+        ...
 
-    async def send_str(self, *args, **kwargs):
-        pass
+    async def send_str(self, data: str) -> None:
+        ...
 
 
 class RSGIWebsocketProtocol(object):
@@ -166,21 +178,21 @@ class RSGIWebsocketProtocol(object):
     used as the websocket close code.
     """
 
-    def accept(self, *args, **kwargs) -> "RSGIWebsocketTransport":
-        pass
+    async def accept(self, *args, **kwargs) -> "RSGIWebsocketTransport":
+        ...
 
-    def close(self, *args, **kwargs):
-        pass
+    def close(self, status: Optional[int] = None):
+        ...
 
     def __init__(self, *args, **kwargs):
-        pass
+        ...
 
     @staticmethod
     def __new__(cls, *args, **kwargs):
-        pass
+        ...
 
 
 class RSGIWebsocketScope(RSGIHTTPScope):
     """RSGI Websocket scope template, for type hinting"""
 
-    pass
+    ...

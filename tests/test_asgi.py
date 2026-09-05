@@ -4,11 +4,15 @@ import unittest
 from contextlib import asynccontextmanager
 from pathlib import Path
 from types import CodeType
-from unittest.mock import AsyncMock, MagicMock, Mock, NonCallableMock, call
+from typing import TYPE_CHECKING, cast
+from unittest.mock import AsyncMock, Mock, NonCallableMock, call
 
 from rsgiadapter import ASGIToRSGI
 from rsgiadapter.asgi import ASGIToRSGIAdapter
 from rsgiadapter.response import BodyManager, Response
+
+if TYPE_CHECKING:
+    from rsgiadapter.protocol import RSGIHTTPProtocol
 
 
 class Stream(Mock):
@@ -21,7 +25,15 @@ class Stream(Mock):
 class MockAsyncIterator:
     """
     Wraps an iterator in an asynchronous iterator.
+
+    The response_* attributes are attached by tests that drive a full
+    request/response through the adapter with this fake protocol.
     """
+
+    response_bytes: Mock
+    response_empty: Mock
+    response_file: Mock
+    response_stream: Mock
 
     def __init__(self, iterator):
         self.iterator = iterator
@@ -145,7 +157,7 @@ class TestPerformResponse(unittest.IsolatedAsyncioTestCase):
         )
         self.protocol.response_bytes = Mock()
         self.protocol.response_file = Mock()
-        self.adapter = ASGIToRSGIAdapter(None, None, None)
+        self.adapter = ASGIToRSGIAdapter(None)
 
     async def test_response_file(self):
         self.response.path = Path("test.txt")
@@ -376,7 +388,8 @@ class TestASGIToRSGIWrapper(unittest.TestCase):
             yield
 
         with self.assertRaises(TypeError):
-            ASGIToRSGI(self._noop_app, lifespan=lifespan)
+            # deliberately passing a sync generator: rejected at runtime
+            ASGIToRSGI(self._noop_app, lifespan=lifespan)  # type: ignore[arg-type]
 
     def test_atexit_shutdown_logs_exceptions(self):
         @asynccontextmanager
@@ -471,7 +484,9 @@ class TestHTTPFlowBranches(unittest.IsolatedAsyncioTestCase):
             )
             received.append(await receive())
 
-        await ASGIToRSGIAdapter(app)(self.make_scope(), protocol)
+        await ASGIToRSGIAdapter(app)(
+            self.make_scope(), cast("RSGIHTTPProtocol", protocol)
+        )
         self.assertEqual(received[0]["type"], "http.request")
         self.assertEqual(received[0]["body"], b"part1")
         self.assertTrue(received[0]["more_body"])

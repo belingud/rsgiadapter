@@ -22,7 +22,7 @@ class TestAppendMethod(unittest.TestCase):
     def test_append_unsupported_type(self):
         with self.assertWarns(ResourceWarning):
             data = 123  # unsupported type
-            self.body.append(data)
+            self.body.append(data)  # type: ignore[arg-type]
 
     def test_body_length_incremented(self):
         data = b"test"

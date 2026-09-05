@@ -5,7 +5,7 @@ from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import PlainTextResponse
 from starlette.routing import Route, WebSocketRoute
-from starlette.websockets import WebSocket, WebSocketDenialResponse, WebSocketDisconnect
+from starlette.websockets import WebSocket, WebSocketDisconnect
 
 from rsgiadapter import ASGIToRSGI
 
@@ -39,7 +39,8 @@ async def ws_echo(websocket: WebSocket):
 async def ws_deny(websocket: WebSocket):
     # exercises the websocket.http.response extension: the RSGI server only
     # carries the denial status, custom headers/body are dropped
-    raise WebSocketDenialResponse(status_code=403, content="Denied")
+    response = PlainTextResponse("Denied", status_code=403)
+    await websocket.send_denial_response(response)
 
 
 application = Starlette(

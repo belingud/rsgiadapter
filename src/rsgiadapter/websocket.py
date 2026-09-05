@@ -22,7 +22,11 @@ from rsgiadapter.constant import (
 )
 
 if TYPE_CHECKING:
-    from rsgiadapter.protocol import RSGIWebsocketProtocol, RSGIWebsocketScope
+    from rsgiadapter.protocol import (
+        RSGIWebsocketProtocol,
+        RSGIWebsocketScope,
+        RSGIWebsocketTransport,
+    )
 
 logger = logging.getLogger("rsgiadapter.websocket")
 
@@ -75,7 +79,8 @@ class ASGIToRSGIWebsocketAdapter:
         self.state = {}
         # RSGI protocol handed over by the server in __call__
         self.protocol: Optional["RSGIWebsocketProtocol"] = None
-        self._transport = None
+        # accepted RSGI transport; set by _accept
+        self._transport: Optional["RSGIWebsocketTransport"] = None
 
         # conversation state machine:
         # - _connect_sent: the initial websocket.connect event was consumed
@@ -91,13 +96,16 @@ class ASGIToRSGIWebsocketAdapter:
         self._disconnect_delivered = False
         self._denial_status: Optional[int] = None
         self._terminal_code: Optional[int] = None
-        # ASGI receive events produced by the transport pump task
-        self._incoming: Optional[asyncio.Queue] = None
+        # ASGI receive events produced by the transport pump task; __call__
+        # installs a fresh, bounded queue for every connection
+        self._incoming: asyncio.Queue = asyncio.Queue(maxsize=32)
         self._pump_task: Optional[asyncio.Task] = None
 
     # ------------------------------------------------------------------ scope
 
-    def make_asgi_scope(self, scope: "RSGIWebsocketScope") -> Dict[str, Any]:
+    def make_asgi_scope(
+        self, scope: Optional["RSGIWebsocketScope"]
+    ) -> Dict[str, Any]:
         """
         Generates an ASGI websocket scope from the RSGI websocket scope.
 
@@ -320,10 +328,13 @@ class ASGIToRSGIWebsocketAdapter:
                 "RSGI websocket cannot add custom accept headers, ignoring %r",
                 headers,
             )
-        # granian's RSGI accept takes no arguments and returns the transport
+        # granian's RSGI accept takes no arguments and returns the transport;
+        # the protocol is always installed by __call__ before the app runs
+        protocol = self.protocol
+        assert protocol is not None, "RSGI protocol not initialized"
         self._accepting = True
         try:
-            transport = await self.protocol.accept()
+            transport = await protocol.accept()
         finally:
             self._accepting = False
         self._transport = transport
@@ -340,6 +351,7 @@ class ASGIToRSGIWebsocketAdapter:
         if not self._accepted:
             raise RuntimeError("Websocket not accepted yet")
         transport = self._transport
+        assert transport is not None, "Websocket transport not initialized"
         if message.get("bytes") is not None:
             await transport.send_bytes(message["bytes"])
         elif message.get("text") is not None:
@@ -441,8 +453,10 @@ class ASGIToRSGIWebsocketAdapter:
         self._terminal_code = (
             status if status is not None else CLOSE_NORMAL
         )
+        protocol = self.protocol
+        assert protocol is not None, "RSGI protocol not initialized"
         try:
-            self.protocol.close(status)
+            protocol.close(status)
         except Exception:
             logger.warning(
                 "Failed to close the RSGI websocket protocol", exc_info=True

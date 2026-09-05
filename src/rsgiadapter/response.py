@@ -9,6 +9,7 @@ iteration; Response bundles the accumulated state of one HTTP response
 
 import warnings
 from dataclasses import dataclass, field
+from os import PathLike
 from tempfile import SpooledTemporaryFile
 from typing import List, Optional, Tuple, Union
 
@@ -110,7 +111,8 @@ class Response:
     status: Optional[int] = None
     headers: Union[List[tuple], Tuple[tuple]] = field(default_factory=list)
     body: BodyManager = field(default_factory=BodyManager)
-    path: Optional[str] = b""
+    # pathsend target; perform_response also accepts any os.PathLike at runtime
+    path: Optional[Union[str, "PathLike"]] = None
     stream: Optional[bool] = False
     type: Optional[str] = None
 

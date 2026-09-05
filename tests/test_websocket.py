@@ -1,6 +1,13 @@
 import asyncio
 import unittest
 from types import SimpleNamespace
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from rsgiadapter.protocol import (
+        RSGIWebsocketProtocol,
+        RSGIWebsocketTransport,
+    )
 from unittest.mock import AsyncMock, Mock
 
 from rsgiadapter.asgi import ASGIToRSGIAdapter
@@ -15,6 +22,11 @@ from rsgiadapter.websocket import (
 WS_EXTENSIONS = {"websocket.http.response": {}}
 
 
+async def _null_app(scope, receive, send):
+    """Application stub for unit tests that never run the app."""
+    raise AssertionError("_null_app must never be invoked")
+
+
 class FakeWebsocketTransport:
     """
     Mimics granian's RSGI websocket transport: ``receive`` returns messages
@@ -25,16 +37,16 @@ class FakeWebsocketTransport:
         self.messages = list(messages)
         self.sent = []
 
-    async def receive(self):
+    async def receive(self, *args: Any, **kwargs: Any) -> Any:
         if self.messages:
             return self.messages.pop(0)
         raise RuntimeError("connection closed")
 
-    async def send_bytes(self, data):
-        self.sent.append(("bytes", data))
+    async def send_bytes(self, *args: Any, **kwargs: Any) -> None:
+        self.sent.append(("bytes", args[0]))
 
-    async def send_str(self, data):
-        self.sent.append(("text", data))
+    async def send_str(self, *args: Any, **kwargs: Any) -> None:
+        self.sent.append(("text", args[0]))
 
 
 def ws_message(kind, data=None):
@@ -46,7 +58,11 @@ def ws_message(kind, data=None):
 class FakeProtocol:
     """Mimics granian's RSGIWebsocketProtocol surface."""
 
-    def __init__(self, transport):
+    transport: Any
+    accept: Any
+    close: Any
+
+    def __init__(self, transport: Any):
         self.transport = transport
         self.accept = AsyncMock(return_value=transport)
         self.close = Mock()
@@ -73,7 +89,7 @@ class FakeProtocol:
 class TestMakeWebsocketScope(unittest.TestCase):
 
     def setUp(self):
-        self.adapter = ASGIToRSGIWebsocketAdapter(None)
+        self.adapter = ASGIToRSGIWebsocketAdapter(_null_app)
 
     def test_scope_not_none(self):
         scope = FakeProtocol(None).make_scope()
@@ -126,7 +142,9 @@ class TestWebsocketBridge(unittest.IsolatedAsyncioTestCase):
     async def run_app(self, app, transport):
         protocol = FakeProtocol(transport)
         scope = protocol.make_scope()
-        await ASGIToRSGIWebsocketAdapter(app)(scope, protocol)
+        await ASGIToRSGIWebsocketAdapter(app)(
+            scope, cast("RSGIWebsocketProtocol", protocol)
+        )
         return protocol
 
     async def test_accept_echo_and_disconnect(self):
@@ -282,7 +300,9 @@ class TestWebsocketBridge(unittest.IsolatedAsyncioTestCase):
 
         protocol = FakeProtocol(transport)
         scope = protocol.make_scope()
-        await ASGIToRSGIAdapter(app)(scope, protocol)
+        await ASGIToRSGIAdapter(app)(
+            scope, cast("RSGIWebsocketProtocol", protocol)
+        )
         self.assertEqual(events[0], {"type": "websocket.connect"})
         self.assertEqual(
             events[1], {"type": "websocket.disconnect", "code": DISCONNECT_NO_CODE}
@@ -324,12 +344,15 @@ class TestWebsocketAdapterBranches(unittest.IsolatedAsyncioTestCase):
     """
 
     def make_adapter(self):
-        return ASGIToRSGIWebsocketAdapter(None)
+        return ASGIToRSGIWebsocketAdapter(_null_app)
 
     async def test_subprotocols_missing_headers(self):
         adapter = self.make_adapter()
-        self.assertEqual(adapter._subprotocols(SimpleNamespace(headers=None)), [])
-        self.assertEqual(adapter._subprotocols(SimpleNamespace(headers={})), [])
+        scope = FakeProtocol(None).make_scope()
+        scope.headers = None
+        self.assertEqual(adapter._subprotocols(scope), [])
+        scope.headers = {}
+        self.assertEqual(adapter._subprotocols(scope), [])
 
     async def test_receive_after_terminal_close(self):
         adapter = self.make_adapter()
@@ -374,7 +397,7 @@ class TestWebsocketAdapterBranches(unittest.IsolatedAsyncioTestCase):
     async def test_send_message_without_payload_raises(self):
         adapter = self.make_adapter()
         adapter._accepted = True
-        adapter._transport = FakeWebsocketTransport()
+        adapter._transport = cast("RSGIWebsocketTransport", FakeWebsocketTransport())
         with self.assertRaisesRegex(RuntimeError, "bytes.*text"):
             await adapter.send({"type": "websocket.send"})
 
@@ -415,7 +438,7 @@ class TestWebsocketAdapterBranches(unittest.IsolatedAsyncioTestCase):
     async def test_close_after_denial_uses_denial_status(self):
         protocol = FakeProtocol(None)
         adapter = self.make_adapter()
-        adapter.protocol = protocol
+        adapter.protocol = cast("RSGIWebsocketProtocol", protocol)
         adapter._denial_status = 451
         await adapter.send({"type": "websocket.close", "code": 1000})
         self.assertEqual([c.args for c in protocol.close.call_args_list], [(451,)])
@@ -423,7 +446,7 @@ class TestWebsocketAdapterBranches(unittest.IsolatedAsyncioTestCase):
     async def test_close_with_reason_before_accept_denies_403(self):
         protocol = FakeProtocol(None)
         adapter = self.make_adapter()
-        adapter.protocol = protocol
+        adapter.protocol = cast("RSGIWebsocketProtocol", protocol)
         await adapter.send(
             {"type": "websocket.close", "code": 1000, "reason": "bye"}
         )
@@ -457,7 +480,9 @@ class TestWebsocketAdapterBranches(unittest.IsolatedAsyncioTestCase):
         protocol = FakeProtocol(transport)
         scope = protocol.make_scope()
         with self.assertLogs("rsgiadapter.websocket", level="DEBUG") as logs:
-            await ASGIToRSGIWebsocketAdapter(app)(scope, protocol)
+            await ASGIToRSGIWebsocketAdapter(app)(
+                scope, cast("RSGIWebsocketProtocol", protocol)
+            )
         self.assertIn("ASGI app cancelled", "\n".join(logs.output))
         protocol.accept.assert_not_awaited()
         self.assertEqual(
@@ -479,7 +504,9 @@ class TestWebsocketAdapterBranches(unittest.IsolatedAsyncioTestCase):
             # returns without sending the denial body
 
         protocol = FakeProtocol(transport)
-        await ASGIToRSGIWebsocketAdapter(app)(protocol.make_scope(), protocol)
+        await ASGIToRSGIWebsocketAdapter(app)(
+            protocol.make_scope(), cast("RSGIWebsocketProtocol", protocol)
+        )
         protocol.accept.assert_not_awaited()
         self.assertEqual([c.args for c in protocol.close.call_args_list], [(451,)])
 
@@ -503,7 +530,7 @@ class TestWebsocketAdapterBranches(unittest.IsolatedAsyncioTestCase):
     async def test_accept_with_custom_headers_is_dropped_with_note(self):
         protocol = FakeProtocol(FakeWebsocketTransport())
         adapter = self.make_adapter()
-        adapter.protocol = protocol
+        adapter.protocol = cast("RSGIWebsocketProtocol", protocol)
         with self.assertLogs("rsgiadapter.websocket", level="DEBUG") as logs:
             await adapter.send(
                 {
@@ -519,7 +546,7 @@ class TestWebsocketAdapterBranches(unittest.IsolatedAsyncioTestCase):
     async def test_terminate_twice_is_a_noop(self):
         protocol = FakeProtocol(None)
         adapter = self.make_adapter()
-        adapter.protocol = protocol
+        adapter.protocol = cast("RSGIWebsocketProtocol", protocol)
         adapter._terminate(1000)
         adapter._terminate(1000)
         self.assertEqual([c.args for c in protocol.close.call_args_list], [(1000,)])
