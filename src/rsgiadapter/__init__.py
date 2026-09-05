@@ -8,4 +8,4 @@ from rsgiadapter.asgi import ASGIToRSGI
 
 __all__ = ["ASGIToRSGI"]
 
-__version__ = "0.0.6"
+__version__ = "0.1.0"
