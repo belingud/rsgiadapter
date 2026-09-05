@@ -1,3 +1,13 @@
+"""
+Type templates for the ASGI scopes built by the adapter and the RSGI
+scope/protocol objects handed over by RSGI servers (e.g. granian).
+
+The ``RSGI*`` classes are never instantiated at runtime: they exist only as
+structural templates for type checking, since the real objects are provided
+by the RSGI server. Their attribute sets mirror the RSGI spec
+(https://github.com/emmett-framework/granian/blob/master/docs/spec/RSGI.md).
+"""
+
 from typing import Any, Dict, Iterable, List, Optional, Tuple, TypedDict, Union
 
 
@@ -122,8 +132,41 @@ class RSGIHTTPProtocol(object):
         pass
 
 
+class RSGIWebsocketMessage:
+    """
+    Incoming websocket message template, for type hinting.
+
+    kind: 0 = closed by client, 1 = bytes message, 2 = string message
+    data: message content, absent for the close message
+    """
+
+    kind: int
+    data: Optional[Union[bytes, str]]
+
+
+class RSGIWebsocketTransport(object):
+    """RSGI Websocket transport template, for type hinting"""
+
+    async def receive(self, *args, **kwargs) -> RSGIWebsocketMessage:
+        pass
+
+    async def send_bytes(self, *args, **kwargs):
+        pass
+
+    async def send_str(self, *args, **kwargs):
+        pass
+
+
 class RSGIWebsocketProtocol(object):
-    def accept(self, *args, **kwargs):
+    """RSGI Websocket protocol template, for type hinting
+
+    ``accept`` completes the handshake and returns the transport;
+    ``close(status)`` ends the connection - before acceptance ``status`` is
+    emitted as the HTTP status of a denial response, after acceptance it is
+    used as the websocket close code.
+    """
+
+    def accept(self, *args, **kwargs) -> "RSGIWebsocketTransport":
         pass
 
     def close(self, *args, **kwargs):
@@ -138,4 +181,6 @@ class RSGIWebsocketProtocol(object):
 
 
 class RSGIWebsocketScope(RSGIHTTPScope):
+    """RSGI Websocket scope template, for type hinting"""
+
     pass
