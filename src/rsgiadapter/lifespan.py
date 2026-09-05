@@ -1,3 +1,13 @@
+"""
+ASGI in-band lifespan support (server-driven startup/shutdown).
+
+Kept for RSGI servers that drive the ASGI lifespan protocol: LifespanProtocol
+speaks the server side of the ASGI lifespan handshake against an ASGI
+application (startup/shutdown messages and their complete/failed replies).
+Not wired into the adapter yet: ASGIToRSGI enters lifespans eagerly through
+an asynccontextmanager and exits them at process shutdown.
+"""
+
 import asyncio
 import logging
 
@@ -44,7 +54,13 @@ class LifespanProtocol:
         self.exc = None
         self.state = {}
 
-    async def handle(self):
+    async def handle(self, event):
+        """
+        Runs the lifespan ASGI callable for one phase and resolves its event.
+
+        The event is only set once the application answered (or raised), so
+        the phase awaiting it never returns before the handshake finished.
+        """
         try:
             await self._callable(
                 {
@@ -63,12 +79,12 @@ class LifespanProtocol:
             self.unsupported = True
             self.logger.warning("ASGI Lifespan errored.")
         finally:
-            self.event_startup.set()
-            self.event_shutdown.set()
+            event.set()
 
     async def startup(self):
+        """Sends ``lifespan.startup`` and waits for the application reply."""
         loop = asyncio.get_event_loop()
-        _handler_task = loop.create_task(self.handle())
+        _handler_task = loop.create_task(self.handle(self.event_startup))
 
         await self.event_queue.put({"type": "lifespan.startup"})
         await self.event_startup.wait()
@@ -77,13 +93,13 @@ class LifespanProtocol:
             _handler_task.cancel()
 
     async def shutdown(self):
-        print("in lifespanprotocol shutdown")
+        """Sends ``lifespan.shutdown`` and waits for the application reply."""
         self.state.clear()
 
         if self.errored:
             return
         loop = asyncio.get_event_loop()
-        _handler_task = loop.create_task(self.handle())
+        _handler_task = loop.create_task(self.handle(self.event_shutdown))
 
         await self.event_queue.put({"type": "lifespan.shutdown"})
         await self.event_shutdown.wait()
