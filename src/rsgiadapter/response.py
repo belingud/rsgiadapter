@@ -1,3 +1,12 @@
+"""
+Response buffering helpers.
+
+BodyManager accumulates ASGI response body chunks in a spooled temporary
+file (memory up to a threshold, disk beyond it) and supports sync/async
+iteration; Response bundles the accumulated state of one HTTP response
+(status, headers, body, optional file path).
+"""
+
 import warnings
 from dataclasses import dataclass, field
 from tempfile import SpooledTemporaryFile
@@ -88,6 +97,16 @@ class BodyManager:
 
 @dataclass
 class Response:
+    """Accumulated state of one HTTP response.
+
+    Fields:
+        status: HTTP status code once http.response.start is seen
+        headers: decoded response headers
+        body: BodyManager holding every response body chunk
+        path: file path when the response is a pathsend response
+        stream/type: reserved for future response kinds
+    """
+
     status: Optional[int] = None
     headers: Union[List[tuple], Tuple[tuple]] = field(default_factory=list)
     body: BodyManager = field(default_factory=BodyManager)

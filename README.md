@@ -88,14 +88,13 @@ Supported Feature:
   - [x] ASGI scope
   - [x] ASGI receive
   - [x] ASGI send
-- [x] Extensions
-  - [x] http.response.pathsend
-  - [ ] websocket.http.response
-  - [ ] http.response.push
-  - [ ] http.response.zerocopysend
-  - [ ] http.response.early_hint
-  - [ ] http.response.trailers
-  - [ ] http.response.debug
+- [x] WebSocket Request Response
+  - [x] ASGI scope
+  - [x] websocket.connect
+  - [x] websocket.accept
+  - [x] websocket.receive
+  - [x] websocket.send
+  - [x] websocket.close
 - [x] Lifespan
   - [x] lifespan.startup
   - [x] lifespan.startup.complete(silence)
@@ -103,6 +102,27 @@ Supported Feature:
   - [x] lifespan.shutdown
   - [x] lifespan.shutdown.complete(silence)
   - [x] lifespan.shutdown.failed(will terminate)
+- [x] Extensions
+  - [x] http.response.pathsend
+  - [x] websocket.http.response
+  - [x] http.response.debug (only logged by the adapter, not sent to the wire)
+  - [ ] http.response.push (requires RSGI server support)
+  - [ ] http.response.zerocopysend (requires RSGI server support)
+  - [ ] http.response.early_hint (requires RSGI server support)
+  - [ ] http.response.trailers (requires RSGI server support)
+
+> Unsupported HTTP extensions are not advertised in `scope["extensions"]`, so
+> ASGI frameworks will not attempt to use them; if an application sends such a
+> message anyway, the adapter consumes it without breaking the response and
+> logs a warning. The RSGI protocol exposed by granian (RSGI spec 1.6) has no
+> transport for server push, zero-copy sends, 103 early hints or response
+> trailers, and granian's native ASGI support does not implement them either.
+>
+> WebSocket caveats imposed by the RSGI server: the selected subprotocol
+> cannot be negotiated, `websocket.close` codes/reasons are dropped
+> (see [granian #645](https://github.com/emmett-framework/granian/issues/645)),
+> and a denial response (`websocket.http.response`) only carries its status
+> code - custom headers and body cannot cross the RSGI boundary yet.
 
 Ref:
 

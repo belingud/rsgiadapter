@@ -8,6 +8,7 @@ from fastapi.responses import StreamingResponse
 from granian import Granian
 from granian.constants import Interfaces
 from starlette.responses import FileResponse
+from starlette.websockets import WebSocketDisconnect
 
 from rsgiadapter.asgi import ASGIToRSGI
 
@@ -61,7 +62,13 @@ async def file():
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     await websocket.send_json({"hello": "world"})
-    await websocket.close()
+    # echo until the client disconnects
+    try:
+        while True:
+            data = await websocket.receive_text()
+            await websocket.send_text(f"echo: {data}")
+    except WebSocketDisconnect:
+        pass
 
 
 app = ASGIToRSGI(fast, lifespan=lifespan)
